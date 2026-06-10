@@ -32,7 +32,6 @@ cp -rv skills/* ~/.claude/skills/
 
 # 4. Copy the global settings into ~/.claude/
 cp -v settings/settings.json ~/.claude/settings.json
-cp -v settings/settings.local.json ~/.claude/settings.local.json
 ```
 
 ### Using `rsync` (recommended for re-syncing / updates)
@@ -43,7 +42,6 @@ cp -v settings/settings.local.json ~/.claude/settings.local.json
 rsync -av agents/  ~/.claude/agents/
 rsync -av skills/  ~/.claude/skills/
 rsync -av settings/settings.json       ~/.claude/settings.json
-rsync -av settings/settings.local.json ~/.claude/settings.local.json
 ```
 
 > **Heads up — settings.** Copying `settings.json` overwrites your existing global Claude Code settings. If you already have a customized `~/.claude/settings.json`, back it up first (`cp ~/.claude/settings.json ~/.claude/settings.json.bak`) and merge by hand instead of overwriting.
@@ -575,20 +573,28 @@ After installing, restart Claude Code (or start a new session). The agents becom
 
 ## ⚙️ Settings
 
-The [`settings/`](settings/) directory contains two files:
+The [`settings/`](settings/) directory contains the global Claude Code configuration file:
 
 ### [`settings.json`](settings/settings.json)
-Global Claude Code configuration:
-- **`env`** — tuning overrides: autocompact at 70% context (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`), larger bash output limit (`BASH_MAX_OUTPUT_LENGTH=20000`), MCP output token cap (`MAX_MCP_OUTPUT_TOKENS=8000`), and `medium` effort level.
+
+**`env`** — environment variables that tune the Claude Code harness. Each one:
+
+| Variable | Value | What it does |
+| --- | --- | --- |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | `70` | Triggers automatic context compaction once the context window reaches 70% usage (instead of the higher default), keeping more room before the limit. |
+| `BASH_MAX_OUTPUT_LENGTH` | `20000` | Maximum number of characters captured from a Bash command's output before it is truncated. Raised so long command outputs aren't cut short. |
+| `MAX_MCP_OUTPUT_TOKENS` | `8000` | Caps the number of tokens returned by MCP (Model Context Protocol) tool calls, preventing a single MCP response from flooding the context. |
+| `CLAUDE_CODE_EFFORT_LEVEL` | `medium` | Sets the default reasoning/effort level Claude applies to tasks (`low` / `medium` / `high`), balancing speed against thoroughness. |
+
+Other keys:
 - **`permissions.deny`** — read guardrails that block sensitive/noisy paths (`./secrets/**`, `node_modules`, build/dist/coverage/.next, logs, `*.log`).
 - **`statusLine`** — a command-based status line showing the active model and context-window usage percentage (via `jq`).
 - **`theme`** — `dark`.
-- **`model`** — `opus[1m]`.
-
-### [`settings.local.json`](settings/settings.local.json)
-Machine-local permission allowlist (typically not shared) — pre-approves a handful of Docker commands (`docker volume`, `docker run`, `docker ps`, `docker stop`) and `sudo ls`.
+- **`model`** — `sonnet`.
 
 > Adjust `model`, `theme`, and the permission lists to match your own environment before relying on them.
+>
+> A `settings.local.json` (machine-local permission overrides) is intentionally **not** tracked in this repo — it is git-ignored. Create your own at `~/.claude/settings.local.json` if you need per-machine permission allowlists.
 
 ---
 
@@ -598,6 +604,6 @@ Machine-local permission allowlist (typically not shared) — pre-approves a han
 claude-code-kit/
 ├── agents/      # 133 subagent .md definitions (+ CLAUDE.md, AGENTS-REFERENCE.md)
 ├── skills/      # 190 skill directories, each with a SKILL.md
-├── settings/    # settings.json + settings.local.json
+├── settings/    # settings.json (global config)
 └── README.md
 ```
