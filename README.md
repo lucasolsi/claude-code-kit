@@ -16,51 +16,47 @@ A curated collection of **agents**, **skills**, and **settings** that supercharg
 
 ## 🔧 Installation (user-level / global)
 
-These steps install everything at the **user level** so the agents, skills, and settings are available across **all** your projects (Claude Code reads from `~/.claude/`).
+These steps install everything at the **user level** so the agents, skills, and settings are available across **all** your projects (Claude Code reads from `~/.claude/` on Linux/macOS and `%USERPROFILE%\.claude\` on Windows).
 
 > Run the commands from the root of this repository.
+
+---
+
+### Linux / macOS
 
 ```bash
 # 1. Create the target directories if they don't exist
 mkdir -p ~/.claude/agents ~/.claude/skills
 
-# 2. Copy all agents (the .md files) into the user agents folder
+# 2. Copy all agents
 cp -v agents/*.md ~/.claude/agents/
 
-# 3. Copy all skills (each skill is its own directory) into the user skills folder
+# 3. Copy all skills (each skill is its own directory)
 cp -rv skills/* ~/.claude/skills/
 
-# 4. Copy the global settings into ~/.claude/
+# 4. Copy the global settings
 cp -v settings/settings.json ~/.claude/settings.json
 ```
 
-### Using `rsync` (recommended for re-syncing / updates)
+#### Re-syncing / updates (recommended)
 
-`rsync` is idempotent and lets you re-run installs to pick up updates without clobbering unrelated files:
+`rsync` is idempotent — re-run it anytime to pick up updates without clobbering unrelated files:
 
 ```bash
 rsync -av agents/  ~/.claude/agents/
 rsync -av skills/  ~/.claude/skills/
-rsync -av settings/settings.json       ~/.claude/settings.json
+rsync -av settings/settings.json ~/.claude/settings.json
 ```
 
-> **Heads up — settings.** Copying `settings.json` overwrites your existing global Claude Code settings. If you already have a customized `~/.claude/settings.json`, back it up first (`cp ~/.claude/settings.json ~/.claude/settings.json.bak`) and merge by hand instead of overwriting.
-
-> **Note.** The `agents/` folder also contains a `CLAUDE.md` and an `AGENTS-REFERENCE.md`. These are reference/instruction docs, not agents — you can skip copying them, or copy them deliberately if you want their guidance.
-
-### Status Line
-
-The kit ships two richer status-line scripts that replace the plain `jq` one-liner bundled in `settings.json`. Both display model name, working directory, git branch (staged / modified counts), a 10-block context bar, session cost, and rate-limit percentages — all in two compact lines.
-
-**Linux / macOS**
+#### Status Line
 
 ```bash
-# 1. Copy the script
+# Copy and make executable
 cp settings/statusline.sh ~/.claude/statusline.sh
 chmod +x ~/.claude/statusline.sh
 ```
 
-Then point `statusLine` in `~/.claude/settings.json` to it:
+Then set `statusLine` in `~/.claude/settings.json`:
 
 ```json
 "statusLine": {
@@ -71,14 +67,41 @@ Then point `statusLine` in `~/.claude/settings.json` to it:
 
 Requires `jq` (`brew install jq` / `apt install jq`). `git` is optional — the script degrades gracefully when not in a repo.
 
-**Windows (PowerShell)**
+---
+
+### Windows (PowerShell)
 
 ```powershell
-# 1. Copy the script
+# 1. Create the target directories if they don't exist
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\agents", "$env:USERPROFILE\.claude\skills"
+
+# 2. Copy all agents
+Copy-Item agents\*.md "$env:USERPROFILE\.claude\agents\"
+
+# 3. Copy all skills (each skill is its own directory)
+Copy-Item skills\* "$env:USERPROFILE\.claude\skills\" -Recurse
+
+# 4. Copy the global settings
+Copy-Item settings\settings.json "$env:USERPROFILE\.claude\settings.json"
+```
+
+#### Re-syncing / updates (recommended)
+
+`robocopy` is the Windows equivalent of `rsync` — safe to re-run, only copies changed files:
+
+```powershell
+robocopy agents  "$env:USERPROFILE\.claude\agents"  *.md /NFL /NDL
+robocopy skills  "$env:USERPROFILE\.claude\skills"  /E   /NFL /NDL
+Copy-Item settings\settings.json "$env:USERPROFILE\.claude\settings.json" -Force
+```
+
+#### Status Line
+
+```powershell
 Copy-Item settings\statusline.ps1 "$env:USERPROFILE\.claude\statusline.ps1"
 ```
 
-Then point `statusLine` in `%USERPROFILE%\.claude\settings.json` to it:
+Then set `statusLine` in `%USERPROFILE%\.claude\settings.json`. Use your actual Windows username in the path and forward slashes inside the JSON string:
 
 ```json
 "statusLine": {
@@ -87,7 +110,17 @@ Then point `statusLine` in `%USERPROFILE%\.claude\settings.json` to it:
 }
 ```
 
-Replace `<YourName>` with your Windows username (forward slashes in the JSON path). If you have PowerShell 7 installed, swap `powershell` for `pwsh`. Windows Terminal is recommended for correct ANSI / UTF-8 rendering. No `jq` required — the script uses PowerShell's native JSON parser.
+If you have PowerShell 7 installed, swap `powershell` for `pwsh`. Windows Terminal is recommended for correct ANSI / UTF-8 rendering. No `jq` required — the script uses PowerShell's native JSON parser.
+
+---
+
+> **Heads up — settings.** Copying `settings.json` overwrites your existing global Claude Code settings. If you already have a customized file, back it up first:
+> - Linux/macOS: `cp ~/.claude/settings.json ~/.claude/settings.json.bak`
+> - Windows: `Copy-Item "$env:USERPROFILE\.claude\settings.json" "$env:USERPROFILE\.claude\settings.json.bak"`
+>
+> Then merge by hand instead of overwriting.
+
+> **Note.** The `agents/` folder also contains a `CLAUDE.md` and an `AGENTS-REFERENCE.md`. These are reference/instruction docs, not agents — you can skip copying them, or copy them deliberately if you want their guidance.
 
 After installing, restart Claude Code (or start a new session). The agents become available for delegation, and skills trigger automatically based on their descriptions.
 
