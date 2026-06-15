@@ -45,5 +45,5 @@
     "command": "~/.claude/statusline.sh"
   },
   "theme": "dark",
-  "model": "sonnet"
+  "model": "sonnet[1m]"
 }

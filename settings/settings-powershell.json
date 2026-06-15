@@ -45,6 +45,6 @@
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/<YourName>/.claude/statusline.ps1\""
   },
   "theme": "dark",
-  "model": "sonnet"
+  "model": "sonnet[1m]"
 }
 

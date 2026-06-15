@@ -700,7 +700,7 @@ Other keys:
 - **`permissions.deny`** — read guardrails that block sensitive/noisy paths (`./secrets/**`, `node_modules`, build/dist/coverage/.next, logs, `*.log`).
 - **`statusLine`** — runs the platform-specific status line script (model, dir, git branch, context bar, cost, rate limits).
 - **`theme`** — `dark`.
-- **`model`** — `sonnet`.
+- **`model`** — `sonnet[1m]` (Sonnet with 1 million token context window).
 
 > Adjust `model`, `theme`, and the permission lists to match your own environment before relying on them.
 >
