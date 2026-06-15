@@ -18,6 +18,28 @@
       "Read(./*.log)"
     ]
   },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Users/<YourName>/.claude/hooks/pre-tool-use/block-dangerous-commands.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Users/<YourName>/.claude/hooks/pre-tool-use/protect-secrets.js\""
+          }
+        ]
+      }
+    ]
+  },
   "statusLine": {
     "type": "command",
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/<YourName>/.claude/statusline.ps1\""

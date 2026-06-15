@@ -9,6 +9,7 @@ A curated collection of **agents**, **skills**, and **settings** that supercharg
 | **Agents** | 133 specialized subagents | [`agents/`](agents/) | `~/.claude/agents/` |
 | **Skills** | 197 reusable skills | [`skills/`](skills/) | `~/.claude/skills/` |
 | **Settings** | Global config + permissions | [`settings/`](settings/) | `~/.claude/` |
+| **Hooks** | 4 automation hooks | [`hooks/`](hooks/) | `~/.claude/hooks/` |
 
 - **Agents** are role-focused subagents (language experts, reviewers, architects, etc.) that Claude Code can delegate work to.
 - **Skills** are self-contained capability packages (each with a `SKILL.md`) that teach Claude how to use a specific tool, library, or workflow.
@@ -24,9 +25,19 @@ These steps install everything at the **user level** so the agents, skills, and 
 
 ### Linux / macOS
 
+**Dependencies:** `node` ≥ 18 (for hooks) and `jq` (for the status line). Both are optional if you skip hooks or the status line.
+
+```bash
+# Debian/Ubuntu
+sudo apt install nodejs jq
+
+# macOS
+brew install node jq
+```
+
 ```bash
 # 1. Create the target directories if they don't exist
-mkdir -p ~/.claude/agents ~/.claude/skills
+mkdir -p ~/.claude/agents ~/.claude/skills ~/.claude/hooks/pre-tool-use ~/.claude/hooks/post-tool-use ~/.claude/hooks/notification
 
 # 2. Copy all agents
 cp -v agents/*.md ~/.claude/agents/
@@ -34,11 +45,16 @@ cp -v agents/*.md ~/.claude/agents/
 # 3. Copy all skills (each skill is its own directory)
 cp -rv skills/* ~/.claude/skills/
 
-# 4. Copy the status line script and make it executable
+# 4. Copy hooks
+cp -v hooks/pre-tool-use/*.js ~/.claude/hooks/pre-tool-use/
+cp -v hooks/post-tool-use/*.js ~/.claude/hooks/post-tool-use/
+cp -v hooks/notification/*.js  ~/.claude/hooks/notification/
+
+# 5. Copy the status line script and make it executable
 cp settings/statusline.sh ~/.claude/statusline.sh
 chmod +x ~/.claude/statusline.sh
 
-# 5. Copy the platform settings (already points to ~/.claude/statusline.sh)
+# 6. Copy the platform settings (already points to ~/.claude/statusline.sh)
 cp -v settings/settings-bash.json ~/.claude/settings.json
 ```
 
@@ -49,6 +65,7 @@ cp -v settings/settings-bash.json ~/.claude/settings.json
 ```bash
 rsync -av agents/  ~/.claude/agents/
 rsync -av skills/  ~/.claude/skills/
+rsync -av hooks/   ~/.claude/hooks/
 cp settings/statusline.sh ~/.claude/statusline.sh && chmod +x ~/.claude/statusline.sh
 rsync -av settings/settings-bash.json ~/.claude/settings.json
 ```
@@ -59,9 +76,20 @@ Requires `jq` (`brew install jq` / `apt install jq`). `git` is optional — the 
 
 ### Windows (PowerShell)
 
+**Dependencies:** `node` ≥ 18 (for hooks). Install via [nodejs.org](https://nodejs.org) or:
+
+```powershell
+winget install OpenJS.NodeJS
+```
+
 ```powershell
 # 1. Create the target directories if they don't exist
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\agents", "$env:USERPROFILE\.claude\skills"
+New-Item -ItemType Directory -Force `
+  "$env:USERPROFILE\.claude\agents", `
+  "$env:USERPROFILE\.claude\skills", `
+  "$env:USERPROFILE\.claude\hooks\pre-tool-use", `
+  "$env:USERPROFILE\.claude\hooks\post-tool-use", `
+  "$env:USERPROFILE\.claude\hooks\notification"
 
 # 2. Copy all agents
 Copy-Item agents\*.md "$env:USERPROFILE\.claude\agents\"
@@ -69,10 +97,15 @@ Copy-Item agents\*.md "$env:USERPROFILE\.claude\agents\"
 # 3. Copy all skills (each skill is its own directory)
 Copy-Item skills\* "$env:USERPROFILE\.claude\skills\" -Recurse
 
-# 4. Copy the status line script
+# 4. Copy hooks
+Copy-Item hooks\pre-tool-use\*.js "$env:USERPROFILE\.claude\hooks\pre-tool-use\"
+Copy-Item hooks\post-tool-use\*.js "$env:USERPROFILE\.claude\hooks\post-tool-use\"
+Copy-Item hooks\notification\*.js  "$env:USERPROFILE\.claude\hooks\notification\"
+
+# 5. Copy the status line script
 Copy-Item settings\statusline.ps1 "$env:USERPROFILE\.claude\statusline.ps1"
 
-# 5. Copy the platform settings and inject your username into the statusLine path
+# 6. Copy the platform settings and inject your username into path placeholders
 $settings = Get-Content settings\settings-powershell.json -Raw
 $settings = $settings -replace '<YourName>', $env:USERNAME
 $settings | Set-Content "$env:USERPROFILE\.claude\settings.json" -Encoding utf8
@@ -85,6 +118,7 @@ $settings | Set-Content "$env:USERPROFILE\.claude\settings.json" -Encoding utf8
 ```powershell
 robocopy agents  "$env:USERPROFILE\.claude\agents"  *.md /NFL /NDL
 robocopy skills  "$env:USERPROFILE\.claude\skills"  /E   /NFL /NDL
+robocopy hooks   "$env:USERPROFILE\.claude\hooks"   /E   /NFL /NDL
 Copy-Item settings\statusline.ps1 "$env:USERPROFILE\.claude\statusline.ps1" -Force
 $settings = Get-Content settings\settings-powershell.json -Raw
 $settings = $settings -replace '<YourName>', $env:USERNAME
@@ -651,7 +685,7 @@ The [`settings/`](settings/) directory contains platform-specific Claude Code co
 | [`settings-powershell.json`](settings/settings-powershell.json) | Windows | `powershell … statusline.ps1` (username injected at install time) |
 | [`settings.json`](settings/settings.json) | Generic fallback | `~/.claude/statusline.sh` |
 
-All three files share the same base configuration:
+All three files share the same base configuration and include a `hooks.PreToolUse` section that wires the two pre-tool-use hooks (see [Hooks](#-hooks) below).
 
 **`env`** — environment variables that tune the Claude Code harness:
 
@@ -674,12 +708,53 @@ Other keys:
 
 ---
 
+## 🪝 Hooks
+
+The [`hooks/`](hooks/) directory contains Node.js scripts that Claude Code executes automatically at defined lifecycle events. **Only the `pre-tool-use` hooks are wired into `settings.json`** — the others (post-tool-use, notification) must be added manually if you want them.
+
+> **Requirement:** Node.js ≥ 18 must be on your PATH. The hooks use only built-in Node.js modules (`fs`, `path`, `child_process`) — no `npm install` needed.
+
+### Pre-Tool-Use hooks (active by default)
+
+These run **before** Claude executes a tool call and can block the action entirely.
+
+| Hook | Matcher | What it blocks |
+| --- | --- | --- |
+| [`block-dangerous-commands.js`](hooks/pre-tool-use/block-dangerous-commands.js) | `Bash` | Catastrophic shell commands: `rm -rf ~`, `dd` to disk, fork bombs, force-push to main, `git reset --hard`, `chmod 777`, env dumps, and more. Configurable via `SAFETY_LEVEL` (`critical` / `high` / `strict`). |
+| [`protect-secrets.js`](hooks/pre-tool-use/protect-secrets.js) | `Read\|Edit\|Write\|Bash` | Access to sensitive files (`.env`, SSH keys, AWS/GCP/Azure credentials, keystores, `.netrc`, `.npmrc`, etc.) and bash commands that expose or exfiltrate secrets. Same `SAFETY_LEVEL` knob. |
+
+### Post-Tool-Use hooks (optional)
+
+Run **after** a tool call succeeds. Not wired into `settings.json` by default.
+
+| Hook | Matcher | What it does |
+| --- | --- | --- |
+| [`auto-stage.js`](hooks/post-tool-use/auto-stage.js) | `Edit\|Write` | Automatically runs `git add <file>` after every file edit so `git status` always reflects exactly what Claude changed. |
+
+### Notification hooks (optional)
+
+Run when Claude Code fires a notification event (permission prompts, idle, MCP dialogs). Not wired into `settings.json` by default.
+
+| Hook | What it does |
+| --- | --- |
+| [`notify-permission.js`](hooks/notification/notify-permission.js) | Sends a Slack message when Claude needs user input. Set `CCH_SLA_WEBHOOK` to your Slack Incoming Webhook URL. |
+
+### Hook logs
+
+All hooks write structured JSONL entries to `~/.claude/hooks-logs/YYYY-MM-DD.jsonl` for audit and debugging.
+
+---
+
 ## 📁 Repository Layout
 
 ```
 claude-code-kit/
 ├── agents/      # 133 subagent .md definitions (+ CLAUDE.md, AGENTS-REFERENCE.md)
 ├── skills/      # 197 skill directories, each with a SKILL.md
+├── hooks/
+│   ├── pre-tool-use/   # block-dangerous-commands.js, protect-secrets.js
+│   ├── post-tool-use/  # auto-stage.js
+│   └── notification/   # notify-permission.js
 ├── settings/    # settings.json (global config)
 └── README.md
 ```
